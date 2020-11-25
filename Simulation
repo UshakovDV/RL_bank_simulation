@@ -1,0 +1,364 @@
+import numpy as np
+import pandas as pd
+
+class Simulation:
+    
+    def __init__(
+                 self,
+                 tours_numb,
+                 bank_numb,
+                 budget,
+                 cust_numb, 
+                 product_numb,
+                 round_numb,
+                 short_term_feedback,
+                 eval_numb,
+                 budg_coef = 0.2,
+                 equal_part = None,
+                 equal = False, 
+                 ad_part = 0.1
+                 ):
+                 
+        self.tours_numb = tours_numb
+        self.bank_numb = bank_numb
+        self.cust_numb = cust_numb
+        self.budg_coef = budg_coef
+        self.round_numb = round_numb
+        self.budget = budget
+        self.equal = equal
+        self.equal_part = equal_part
+        self.eval_numb = eval_numb
+        self.short_term_feedback = short_term_feedback
+        self.history = pd.DataFrame()        
+        self.tour_counter = 0
+        self.bankropts = []
+        self.brains = None
+        self.bank_list = None
+        self.cust_list = None
+        self.product_numb = None
+    
+    def decomposition(self):
+        bank_numb = self.bank_numb 
+        cust_numb = self.cust_numb
+        amount = self.budget
+        budg_coef = self.budg_coef
+        var_list = []
+        """If we don't have sum equal for each bank rendomly choose different sum for each bank"""
+        if self.equal == True:
+            var_list = [amount//bank_numb]*bank_numb
+        else:
+            while bank_numb != 1:
+                a = round(amount*budg_coef,0)
+                b = round(amount*(1 - budg_coef),0)
+                n = random.randint(a,b)
+                var_list.append(n)            
+                bank_numb -= 1
+            var_list.append(amount)            
+            
+        self.common_budget = sum(var_list)
+        self.banks_info = var_list
+            
+        return (var_list)
+    
+    def brains_generation (self):
+        brains_numb = self.bank_numb
+        brains = []
+        for num in range(brains_numb):
+            learning_rate = random.randint(1,4)/1000
+            print(learning_rate)
+            gamma = 100 - random.randint(1,3)
+            globals()['Bank_%s' % num] = Bank_Brain(
+                                                    input_shape=18,
+                                                    output_shape=6,
+                                                    learning_rate = learning_rate,
+                                                    gamma = gamma
+                                                    )
+            brains.append(globals()['Bank_%s' % num])
+        self.brains = brains
+        return brains
+            
+    def banks_generation (self):
+        self.participants = self.bank_numb
+        bank_numb = self.bank_numb
+        brains = self.brains
+        amount = self.common_budget
+        num = 1
+        bank_list = []
+        for budget in self.banks_info:
+            products = {
+                        'outer': {
+                                  'cost': 0,
+                                  'for_free':0
+                                  },
+                        'inner': {
+                                  'cost': 0,
+                                  'for_free':0
+                                  },
+                        'month_paym': 0
+                        }
+            market_budget = 0
+            globals()['Bank_%s' % num] = Bank(
+                                              clients_numb=0, 
+                                              budget=budget,
+                                              products=products,
+                                              market_budget=market_budget,
+                                              bank_id='Bank_%s' % num,
+                                              monthly_expenses=(budget)*0.05
+                                              )
+            bank_list.append(globals()['Bank_%s' % num])            
+            num += 1
+        self.bank_list = bank_list
+        self.bank_brains = dict(zip(bank_list, brains))
+        return bank_list
+        
+    def clients_generation(self):
+        cust_numb = self.cust_numb
+        num = 1
+        cust_list = []
+        partners_list = ['Client_%s' % i for i in range(1,cust_numb+1)]
+        banks = {i.bank_id:i.products for i in self.bank_list}
+        banks[None] = None
+        
+        for cust in partners_list:
+            partners_num = random.randint(cust_numb//10,cust_numb)
+            trans_list = {x: y for x, y in zip(random.sample(partners_list,partners_num),
+                                               [random.randint(1,15) for i in range(partners_num)])}
+            bank = random.choice(list(banks.keys()))
+            globals()['Client_%s' % num] = Customer(
+                                                    trans_list,
+                                                    cl_id = 'Client_%s' % num,
+                                                    bank_id = None,
+                                                    products = banks[bank]
+                                                    )
+            cust_list.append(globals()['Client_%s' % num])
+            num += 1
+            
+        self.cust_list = cust_list
+        return cust_list
+    
+    def advertize(self):
+        bank_list = self.bank_list
+        cust_list = [cust_list.cl_id for cust_list in self.cust_list]
+        ad_dict = {}
+        random.shuffle(bank_list)
+        for bank in bank_list:
+            perc = int(bank.market_budget/10000)
+            if perc >100: perc = 100                
+            z = random.sample(cust_list, perc)            
+            ad_dict[bank.bank_id] = z
+        self.ad_result = ad_dict
+        return(ad_dict)
+    
+    def ad_results(self):
+        ad_result = self.ad_result
+        bank_list = self.bank_list
+        cust_list = self.cust_list
+        for bank in bank_list:
+            product = bank.products
+            for cl in ad_result[bank.bank_id]:
+                globals()[cl].decision(product,bank.bank_id)
+        for bank in bank_list:
+            bank.previus_cust_num = bank.clients_numb
+            bank.clients_numb = len([cust.bank_id for cust in cust_list if cust.bank_id == bank.bank_id])
+          
+        
+    def reset (self):
+        self.participants = self.bank_numb
+        bank_list = self.bank_list
+        bankropts = self.bankropts
+        bank_brains = self.bank_brains
+        eval_numb = self.eval_numb
+        """Put all banks in one list"""
+        bank_list = bank_list + bankropts
+        if self.res_count % eval_numb == 0:
+            winer_bank_brains = []
+            """Choose 2 banks with best score to save them for next session"""
+            max_budg = [sum(i.pills) for i in bank_list]
+            max_budg.sort()
+            max_budg = max_budg[-2]
+            winers = [i for i in bank_list if sum(i.pills) >= max_budg]
+            """Giving feedback for winners based on whole session"""
+            for bank in winers:
+                bank_brains[bank].administer_pill(
+                                       pills = bank.pills,
+                                       data = bank.data
+                                      )
+            self.decomposition()
+            self.banks_generation()
+            self.clients_generation()
+            bank_list = self.bank_list
+            for bank in range(self.bank_numb):
+                """Randomly replace other banks for winners"""
+                winer = random.choice(winers)
+                winer_bank_brains.append(bank_brains[winer])
+            self.bank_brains = dict(zip(bank_list, winer_bank_brains))
+        else:
+            self.learning()
+            self.decomposition()
+            self.banks_generation()
+            self.clients_generation()
+            self.bank_brains = dict(zip(self.bank_list, list(bank_brains.values())))
+        self.bankropts = []
+        
+    def check_bankrupt(self):
+        bank_list = self.bank_list
+        '''Getting rid of banks with budget equal to or lower than 0'''
+        bankropts = [bank for bank in bank_list if bank.budget<=0]
+        for bankropt in bankropts:
+            self.bankropts.append(bankropt)
+        self.bank_list = [bank for bank in bank_list if bank.budget>0]
+        self.participants = len(self.bank_list)
+        
+    def calculate_maen(self):
+        banks = self.bank_list
+        participants = self.participants
+        mean_out_cost = sum([bank.products['outer']['cost'] for bank in banks])/participants
+        mean_out_for_free = sum([bank.products['outer']['for_free'] for bank in banks])/participants
+        mean_in_cost = sum([bank.products['inner']['cost'] for bank in banks])/participants
+        mean_in_for_free = sum([bank.products['inner']['for_free'] for bank in banks])/participants
+        mean_month_paym = sum([bank.products['month_paym'] for bank in banks])/participants
+        mean_mark_budget = sum([bank.market_budget for bank in banks])/participants
+        mean_cl_number = sum([bank.clients_numb for bank in banks])/participants
+        return (mean_out_cost, mean_out_for_free, mean_in_cost, mean_in_for_free, mean_month_paym, mean_mark_budget, mean_cl_number)
+    
+    def treatment_day(self):
+        banks = self.bank_list
+        history = self.history
+        for bank in banks:
+            """Dr. Loss will prescribe pill"""
+            bank.prescribe_pill(self.cust_list)
+            """Saving states for analys"""
+            state = bank.state
+            state['self_outer_cost'] = bank.products['outer']['cost']
+            state['self_outer_for_free'] = bank.products['outer']['for_free']
+            state['self_inner_cost'] = bank.products['inner']['cost']
+            state['self_inner_for_free'] = bank.products['inner']['for_free']
+            state['self_month_paym'] = bank.products['month_paym']
+            state['self_market_budget'] = bank.market_budget
+            state['Bank_name'] = bank.bank_id
+            state['Score'] = bank.current_pill
+            state['Tour'] = self.tour_counter
+            state['rest'] = self.res_count
+            
+            '''Saving the state for Analytics'''
+            history = history.append(state)
+        self.history = history 
+        
+    def learning(self, period = None):        
+        """Pushing pill down to model throat"""
+        banks = self.bank_list
+        bank_brains = self.bank_brains
+        for bank in banks:
+            bank_brains[bank].administer_pill(
+                                               pills = bank.pills,
+                                               data = bank.data,
+                                               period = period
+                                              )
+            if period is None:
+                bank.pills = []
+            
+    """Now our banks reconsider prices"""
+    def bank_revision(self):
+        bank_brains = self.bank_brains
+        banks = self.bank_list
+        mean_out_cost, mean_out_for_free, mean_in_cost, mean_in_for_free, mean_month_paym, mean_mark_budget, mean_cl_number = self.calculate_maen()
+        x = 0
+        for bank in banks:  
+            state = bank.get_state(
+                                  common_budget = self.common_budget,
+                                  cust_numb = self.cust_numb, 
+                                  bank_list = self.bank_list,
+                                  mean_out_cost = mean_out_cost,
+                                  mean_out_for_free = mean_out_for_free,
+                                  mean_in_cost = mean_in_cost,
+                                  mean_in_for_free = mean_in_for_free,
+                                  mean_month_paym = mean_month_paym,
+                                  mean_mark_budget = mean_mark_budget,
+                                  mean_cl_number = mean_cl_number
+                                  )
+            products, market_budget = bank_brains[bank].budget_revision(state)
+            if x == 10:
+                products = {
+                        'outer': {
+                                  'cost': 10,
+                                  'for_free':0
+                                  },
+                        'inner': {
+                                  'cost': 10,
+                                  'for_free':0
+                                  },
+                        'month_paym': 0
+                        }
+                market_budget = 300000
+                bank.products = products
+                bank.market_budget = market_budget
+            else:
+                bank.products = products
+                bank.market_budget = market_budget
+            x+=1
+                    
+    def run(self):        
+        short_term_feedback = self.short_term_feedback
+        """Generate banks and clients"""
+        self.decomposition()
+        self.brains_generation()
+        self.banks_generation()
+        self.clients_generation()
+        self.res_count = 1
+        """Draw plot to see how our brain is learning"""
+        common_budget = self.common_budget
+        bank_list = self.bank_list
+        round_numb = self.round_numb
+        scale = len(str(common_budget))-1
+        pp = ProgressPlot(
+                    plot_names = ['BUDGET','MARKET_BUDGET','CLIENTS_NUM','SCORE'],
+                    line_names=[bank.bank_id for bank in bank_list],
+                  x_lim=[0, round_numb],
+                  #y_lim=[0, (common_budget/scale)*3],
+                  height=800,
+                  width=1000)
+        while self.res_count != self.tours_numb:    
+            self.tour_counter += 1
+            """Starting simulation"""
+            random.shuffle(self.bank_list)
+            random.shuffle(self.cust_list)
+            """We imitatw the death and arrival of new clients on the roar clearing some of the clients Bank id"""
+            if self.tour_counter%1==0: 
+                del_cl = self.cust_numb*random.randint(15,20)//100
+                for i in self.cust_list[:del_cl]:
+                    i.bank_id = None
+            self.bank_revision()
+            self.check_bankrupt()
+            """Check if we should reset simulation"""
+            if len(self.bank_list) < 2 or self.tour_counter % round_numb == 0:
+                self.tour_counter = 0                                
+                if self.res_count%10 == 0:
+                    print(len(self.bank_list), 'restart', 'Осталось ' + str(self.tours_numb - self.res_count))
+                self.res_count += 1
+                self.reset()
+                bank_list = self.bank_list         
+                clear_output()  
+                pp = ProgressPlot(
+                    plot_names = ['BUDGET','MARKET_BUDGET','CLIENTS_NUM','SCORE'],
+                    line_names=[bank.bank_id for bank in bank_list],
+                  x_lim=[0, round_numb],
+                  #y_lim=[0, (common_budget/scale)*3],
+                  height=800,
+                  width=1000)
+                continue
+            """Market day"""
+            self.advertize()
+            self.ad_results()            
+            """Reconsider actions based on the results from above"""
+            self.treatment_day()
+            if short_term_feedback is not None:
+                if self.tour_counter % short_term_feedback == 0:
+                    self.learning(period = short_term_feedback)
+            pp.update([                       
+                       [bank.budget/100000 for bank in bank_list],
+                       [bank.market_budget/10000 for bank in bank_list],
+                       [bank.clients_numb for bank in bank_list],
+                       [bank.current_pill for bank in bank_list]])
+        pp.finalize()
+        return (self.bank_list)    
+    
