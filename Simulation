@@ -262,7 +262,6 @@ class Simulation:
         bank_brains = self.bank_brains
         banks = self.bank_list
         mean_out_cost, mean_out_for_free, mean_in_cost, mean_in_for_free, mean_month_paym, mean_mark_budget, mean_cl_number = self.calculate_maen()
-        x = 0
         for bank in banks:  
             state = bank.get_state(
                                   common_budget = self.common_budget,
@@ -277,25 +276,9 @@ class Simulation:
                                   mean_cl_number = mean_cl_number
                                   )
             products, market_budget = bank_brains[bank].budget_revision(state)
-            if x == 10:
-                products = {
-                        'outer': {
-                                  'cost': 10,
-                                  'for_free':0
-                                  },
-                        'inner': {
-                                  'cost': 10,
-                                  'for_free':0
-                                  },
-                        'month_paym': 0
-                        }
-                market_budget = 300000
-                bank.products = products
-                bank.market_budget = market_budget
-            else:
-                bank.products = products
-                bank.market_budget = market_budget
-            x+=1
+            bank.products = products
+            bank.market_budget = market_budget
+            
                     
     def run(self):        
         short_term_feedback = self.short_term_feedback
@@ -361,4 +344,3 @@ class Simulation:
                        [bank.current_pill for bank in bank_list]])
         pp.finalize()
         return (self.bank_list)    
-    
