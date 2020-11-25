@@ -1,0 +1,36 @@
+import seaborn as sns
+from sklearn.metrics import silhouette_score, davies_bouldin_score,v_measure_score
+from sklearn.cluster import KMeans, DBSCAN
+from sklearn.preprocessing import Normalizer
+import matplotlib.pyplot as plt
+from jupyterplot import ProgressPlot
+from IPython.display import clear_output
+import warnings
+warnings.filterwarnings('ignore')
+import seaborn as sns
+from sklearn.metrics import silhouette_score, davies_bouldin_score,v_measure_score
+from sklearn.cluster import KMeans, DBSCAN
+from sklearn.preprocessing import Normalizer
+import matplotlib.pyplot as plt
+from jupyterplot import ProgressPlot
+from IPython.display import clear_output
+import warnings
+warnings.filterwarnings('ignore')
+
+
+z = Simulation(
+                tours_numb=50,
+                bank_numb=5,
+                budget=10000000,
+                round_numb=150,
+                cust_numb=300,
+                product_numb=1,
+                short_term_feedback=1,
+                eval_numb=30,
+                equal=False
+              )
+x = z.run()
+
+data = z.history
+save history
+data.to_csv('Yor path')
