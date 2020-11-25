@@ -1,0 +1,119 @@
+class Bank:
+    def __init__(self, clients_numb, budget, products, market_budget, bank_id, monthly_expenses):
+        self.clients_numb = clients_numb
+        self.budget = budget
+        self.monthly_expenses = monthly_expenses
+        self.expenses_per_customer = 100
+        self.current_pill = 0
+        self.pills = []
+        self.critic_history = []        
+        self.action_history = []
+        self.previus_budget = budget
+        self.previus_cust_num = clients_numb
+        self.products = products
+        self.market_budget = market_budget
+        self.bank_id = bank_id        
+        
+        self.data = pd.DataFrame()
+        self.state = None
+        
+    def get_state(
+                    self, common_budget, cust_numb, bank_list, mean_out_cost,
+                    mean_out_for_free, mean_in_cost, mean_in_for_free,
+                    mean_month_paym, mean_mark_budget, mean_cl_number
+                 ):
+        data = self.data
+        predictors = [
+                      self.clients_numb,
+                      self.budget,
+                      len(bank_list),
+                      (self.budget*100/common_budget),
+                      (self.clients_numb*100/cust_numb),
+                      mean_out_cost,
+                      mean_out_for_free,
+                      mean_in_cost,
+                      mean_in_for_free,
+                      mean_month_paym,
+                      mean_mark_budget,
+                      mean_cl_number,
+                      self.market_budget
+                      ]
+        
+        mean_inner_cost = sum([bank.products['outer']['cost'] for bank in bank_list])/len(bank_list)
+        columns = [
+                  'clients_numb', 'budget',  'bank_list', 'perc_of_all_budg', 'perc_of_all_clients',
+                  'mean_out_cost', 'mean_out_for_free', 'mean_in_cost', 'mean_in_for_free', 'mean_month_paym', 'mean_mark_budget',
+                  'mean_cl_number','market_budget'
+                  ]
+       
+        products = self.products
+        
+        for product in products.keys():
+            if isinstance(products[product], dict):
+                for values in products[product].keys():
+                    columns.append(product+ '_' + values)
+                    predictors.append(products[product][values])                    
+            else:
+                columns.append(product)
+                predictors.append(products[product])
+        state = pd.DataFrame([predictors], columns = columns)
+        state['budget'] = state['budget']/100000
+        state['mean_month_paym'] = state['mean_month_paym']/1000
+        state['mean_mark_budget'] = state['mean_mark_budget']/10000
+        state['market_budget'] = state['market_budget']/10000
+        state['month_paym'] = state['month_paym']/1000
+        state['mean_out_cost'] = state['mean_out_cost'] - state['outer_cost']        
+        state['mean_out_for_free'] = state['mean_out_for_free'] - state['outer_for_free']
+        state['mean_in_cost'] = state['mean_in_cost'] - state['inner_cost']
+        state['mean_in_for_free'] = state['mean_in_for_free'] - state['inner_for_free']
+        state['mean_month_paym'] = state['mean_month_paym'] - state['month_paym']
+        state['mean_mark_budget'] = state['mean_mark_budget'] - state['market_budget']
+        state['mean_cl_number'] = state['mean_cl_number'] - state['clients_numb']
+        self.state = state
+        
+        """Training scaler for output of model"""
+        scaler = MinMaxScaler(feature_range=(-1,1))
+        self.scaler_out = scaler.fit(np.array(predictors[-6:]).reshape(-1, 1))
+        self.data = data.append(self.state)
+        return (self.state)
+    
+    def prescribe_pill(self, cust_list):
+        profit = []
+        bank_id = self.bank_id
+        products = self.products
+        budget = self.budget
+        previus_budget = self.budget
+        
+        clients  = [i for i in cust_list if i.bank_id == bank_id]
+        for client in clients:
+            
+            outer_pay = [client.trans_list[j] for j in client.trans_list if globals()[j].bank_id != bank_id]
+            inner_pay = [client.trans_list[j] for j in client.trans_list if globals()[j].bank_id == bank_id]
+            cl_profit = (sum(outer_pay) - products['outer']['for_free'])*products['outer']['cost'] + \
+                        (sum(inner_pay) - products['inner']['for_free'])*products['inner']['cost']
+            profit.append(cl_profit)
+            
+        income = sum(profit) - self.market_budget - self.monthly_expenses - self.expenses_per_customer*self.clients_numb
+        budget = budget + income
+        self.budget = budget
+        
+        """if bank's budget has increased then we give the model a reward , if budget has decreased then we give the model a penalty
+        In this case when budget has remained the same we punish the model, but it ambiguous"""
+                
+        """if budget < 0:
+            budget = -np.log(-budget)
+        elif budget > 0:
+            budget = np.log(budget)
+        
+        if previus_budget < 0:
+            previus_budget = -np.log(-previus_budget)
+        elif budget > 0:
+            previus_budget = np.log(previus_budget)"""
+                                    
+        pill = ((budget) - (previus_budget))/500000
+        self.previus_cust_num = self.clients_numb
+        self.clients_numb = len(clients)
+        self.previus_budget = budget
+        self.pills.append(pill)
+        self.current_pill = pill       
+        """Change bank's budget by the amount of income"""
