@@ -1,0 +1,56 @@
+class Customer:
+    def __init__(self, trans_list, cl_id, products=None, bank_id=None):
+        self.trans_list = trans_list
+        self.products = products
+        self.old_products = products
+        self.bank_id = bank_id
+        self.previous_bank_id = bank_id
+        self.cl_id = cl_id
+        
+    def decision (self, products, new_bank):
+                  
+        old_bank = self.bank_id
+        trans_list = self.trans_list
+        new_products = products        
+        old_products = self.products
+        if old_bank is None:
+            self.bank_id = new_bank
+            self.previous_bank_id = new_bank
+            self.products = products
+            self.old_products = products
+        elif new_bank != old_bank:
+            
+            outer_pay = [trans_list[j] for j in trans_list.keys() if (globals()[j].bank_id != new_bank and globals()[j].bank_id)]
+            paym_trans = (sum(outer_pay) - new_products['outer']['for_free'])
+            if paym_trans > 0:
+                outer_cost = paym_trans * new_products['outer']['cost']
+            else:
+                outer_cost = 0
+                
+            inner_pay = [trans_list[j] for j in trans_list.keys() if (globals()[j].bank_id == new_bank and globals()[j].bank_id)]            
+            paym_trans = (sum(inner_pay) - new_products['inner']['for_free'])            
+            if paym_trans > 0:
+                inner_cost = paym_trans  * new_products['inner']['cost']
+            else:
+                inner_cost = 0
+            new_cost = outer_cost + inner_cost + new_products['month_paym']
+            
+            outer_pay = [trans_list[j] for j in trans_list.keys() if (globals()[j].bank_id != old_bank and globals()[j].bank_id)]            
+            paym_trans = (sum(outer_pay) - new_products['outer']['for_free'])
+            if paym_trans > 0:
+                outer_cost = paym_trans * new_products['outer']['cost']
+            else:
+                outer_cost = 0
+                
+            inner_pay = [trans_list[j] for j in trans_list.keys() if (globals()[j].bank_id == old_bank and globals()[j].bank_id)]
+            if paym_trans > 0:
+                inner_cost = paym_trans  * new_products['inner']['cost']
+            else:
+                inner_cost = 0
+            old_cost = outer_cost + inner_cost + old_products['month_paym']
+            
+            if new_cost - old_cost < 0:
+                self.previous_bank_id = old_bank
+                self.bank_id = new_bank
+                self.products = new_products
+                
