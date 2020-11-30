@@ -17,6 +17,7 @@ class Bank:
         self.data = pd.DataFrame()
         self.state = None
         
+    """Geting state of the bank"""
     def get_state(
                     self, common_budget, cust_numb, bank_list, mean_out_cost,
                     mean_out_for_free, mean_in_cost, mean_in_for_free,
@@ -38,8 +39,7 @@ class Bank:
                       mean_cl_number,
                       self.market_budget
                       ]
-        
-        mean_inner_cost = sum([bank.products['outer']['cost'] for bank in bank_list])/len(bank_list)
+                      
         columns = [
                   'clients_numb', 'budget',  'bank_list', 'perc_of_all_budg', 'perc_of_all_clients',
                   'mean_out_cost', 'mean_out_for_free', 'mean_in_cost', 'mean_in_for_free', 'mean_month_paym', 'mean_mark_budget',
@@ -47,7 +47,7 @@ class Bank:
                   ]
        
         products = self.products
-        
+        """Taking information about prices"""
         for product in products.keys():
             if isinstance(products[product], dict):
                 for values in products[product].keys():
@@ -56,6 +56,7 @@ class Bank:
             else:
                 columns.append(product)
                 predictors.append(products[product])
+        """Calculate information about bank in environment""""
         state = pd.DataFrame([predictors], columns = columns)
         state['budget'] = state['budget']/100000
         state['mean_month_paym'] = state['mean_month_paym']/1000
@@ -76,7 +77,8 @@ class Bank:
         self.scaler_out = scaler.fit(np.array(predictors[-6:]).reshape(-1, 1))
         self.data = data.append(self.state)
         return (self.state)
-    
+        
+    """Calculate feedback for learning"""
     def prescribe_pill(self, cust_list):
         profit = []
         bank_id = self.bank_id
@@ -84,7 +86,11 @@ class Bank:
         budget = self.budget
         previus_budget = self.budget
         
+        """Taking clients that have chosen this bank"""
         clients  = [i for i in cust_list if i.bank_id == bank_id]
+        
+        
+        """Calculate how much bank made in this round"""
         for client in clients:
             
             outer_pay = [client.trans_list[j] for j in client.trans_list if globals()[j].bank_id != bank_id]
