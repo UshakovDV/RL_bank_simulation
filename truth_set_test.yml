@@ -1,0 +1,21 @@
+pipeline_config:
+  project_id: test_project
+  pipeline_id: ds-hwr-general-v2
+  requestor_id: manual
+  envelope_schema_version: 2.1.0
+  payload_schema_version: 1.0.0
+s3_config:
+  region: us-east-1
+  assume_role_map:
+    acom-datascience-trex: arn:aws:iam::251465955583:role/ds-sagemaker-infra-sagemaker-access-role
+dataset:
+  output_location: s3://sagemaker-us-east-1-251465955583/ds-hwr-general/athena
+input_sqs:
+  name: ds-hwr-general-v2-input-sqs
+  assume_role_arn: arn:aws:iam::558877187154:role/ds-hwr-general-v2-dev-deploy-role
+output_sqs:
+  name: ds-hwr-general-v2-test-sqs
+  assume_role_arn: arn:aws:iam::558877187154:role/ds-hwr-general-v2-dev-deploy-role
+sagemaker:
+  model_arn: arn:aws:sagemaker:us-east-1:251465955583:model-package/trex-cc-hwr-1921/35
+  model_role_arn: arn:aws:iam::251465955583:role/ds-sagemaker-infra-sagemaker-access-role
