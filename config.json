@@ -1,0 +1,25 @@
+{
+  "artifactoryS3bucket": "ds-hwr-general-v2-artifactory-dev",
+  "artifactoryS3key": "artifactory",
+  "artifactoryAssumeRoleArn": "arn:aws:iam::558877187154:role/ds-hwr-general-v2-dev-deploy-role",
+  "deployS3bucket": "ds-hwr-general-v2-artifactory-dev",
+  "deployS3key": "controller",
+  "assumeRoleArn": "arn:aws:iam::558877187154:role/ds-hwr-general-v2-dev-deploy-role",
+  "versionS3bucket": "ds-hwr-general-v2-artifactory-dev",
+  "versionS3key": "service-versions",
+  "stackId": "ds-hwr-general-v2",
+  "newrelicApiKey": "NRAK-87830J31UX7NA3CK40D63SISXFI",
+  "newrelicAppId": "",
+  "healthcheckEndpoint": "/ping",
+  "variables": {
+    "PIPELINE_INPUT_SQS": "ds-hwr-general-v2-input-sqs",
+    "PIPELINE_OUTPUT_SNS_ARN": "arn:aws:sns:us-east-1:251465955583:ml-gateway-test-output-dev",
+    "IMAGE_S3_ACCESS_ROLE_ARN": "arn:aws:iam::558877187154:role/news-dataScienceS3Role"
+  },
+  "sagemakerRoleArn": "arn:aws:iam::251465955583:role/ds-sagemaker-infra-sagemaker-access-role",
+  "sagemakerModelArn": "arn:aws:sagemaker:us-east-1:251465955583:model-package/trex-cc-hwr-1921/35",
+  "ecr": "800714472774.dkr.ecr.us-east-1.amazonaws.com",
+  "ecrAssumeRoleArn": "arn:aws:iam::800714472774:role/ds-hwr-general-v2-stage-deploy-role"
+}
+
+
